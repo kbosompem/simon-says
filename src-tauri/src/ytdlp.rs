@@ -89,7 +89,9 @@ pub async fn analyze(tools: &Tools, url: &str) -> Result<AnalyzeResult, String> 
         video: parse_video(&formats),
         audio: parse_audio(&formats),
         subs: parse_subs(&media),
-        webpage_url: str_field(&media, "webpage_url").unwrap_or_else(|| url.to_string()),
+        // Use the URL the user actually pasted — yt-dlp's extracted `webpage_url`
+        // strips the `&list=` param, which breaks whole-playlist downloads.
+        webpage_url: url.to_string(),
     })
 }
 

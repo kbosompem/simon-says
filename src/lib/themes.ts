@@ -1,6 +1,6 @@
 // Theme engine. Bundled shadcn/tweakcn-style presets + runtime install of any
-// tweakcn theme (registry JSON or raw CSS). Themes are token maps applied as
-// inline CSS variables on <html>, so they layer over the base tokens in index.css.
+// tweakcn theme (registry JSON or raw CSS). Themes are complete token maps
+// applied as inline CSS variables on <html>, overriding the base tokens.
 
 export type Mode = "light" | "dark";
 export interface ThemeTokens {
@@ -14,40 +14,73 @@ export interface Theme {
   tokens: ThemeTokens;
 }
 
-// --- bundled presets (accent-driven; neutrals inherit index.css base) ---
-function accent(hue: number, pl: string, pd: string, radius?: string): ThemeTokens {
+// Build a full, harmonious token set from a hue + a couple of knobs so every
+// bundled theme restyles the whole app (background, cards, borders, accent),
+// not just the accent colour.
+function makeTheme(
+  id: string,
+  name: string,
+  hue: number,
+  primaryLight: string,
+  primaryDark: string,
+  radius = "0.625rem"
+): Theme {
   const light: Record<string, string> = {
-    primary: pl,
-    "primary-foreground": "oklch(0.985 0 0)",
-    ring: pl,
-    "sidebar-primary": pl,
-    accent: `oklch(0.96 0.03 ${hue})`,
-    "accent-foreground": `oklch(0.3 0.06 ${hue})`,
-    "chart-1": pl,
+    background: `oklch(0.985 0.006 ${hue})`,
+    foreground: `oklch(0.22 0.02 ${hue})`,
+    card: `oklch(1 0 0)`,
+    "card-foreground": `oklch(0.22 0.02 ${hue})`,
+    popover: `oklch(1 0 0)`,
+    "popover-foreground": `oklch(0.22 0.02 ${hue})`,
+    primary: primaryLight,
+    "primary-foreground": `oklch(0.985 0.005 ${hue})`,
+    secondary: `oklch(0.955 0.012 ${hue})`,
+    "secondary-foreground": `oklch(0.28 0.03 ${hue})`,
+    muted: `oklch(0.955 0.01 ${hue})`,
+    "muted-foreground": `oklch(0.53 0.02 ${hue})`,
+    accent: `oklch(0.93 0.04 ${hue})`,
+    "accent-foreground": `oklch(0.30 0.06 ${hue})`,
+    destructive: `oklch(0.58 0.24 27)`,
+    border: `oklch(0.9 0.012 ${hue})`,
+    input: `oklch(0.9 0.012 ${hue})`,
+    ring: primaryLight,
+    "sidebar": `oklch(0.985 0.006 ${hue})`,
+    "sidebar-primary": primaryLight,
+    radius,
   };
   const dark: Record<string, string> = {
-    primary: pd,
-    "primary-foreground": `oklch(0.2 0.03 ${hue})`,
-    ring: pd,
-    "sidebar-primary": pd,
-    accent: `oklch(0.32 0.04 ${hue})`,
-    "accent-foreground": "oklch(0.985 0 0)",
-    "chart-1": pd,
+    background: `oklch(0.17 0.02 ${hue})`,
+    foreground: `oklch(0.96 0.006 ${hue})`,
+    card: `oklch(0.21 0.024 ${hue})`,
+    "card-foreground": `oklch(0.96 0.006 ${hue})`,
+    popover: `oklch(0.21 0.024 ${hue})`,
+    "popover-foreground": `oklch(0.96 0.006 ${hue})`,
+    primary: primaryDark,
+    "primary-foreground": `oklch(0.17 0.02 ${hue})`,
+    secondary: `oklch(0.27 0.02 ${hue})`,
+    "secondary-foreground": `oklch(0.96 0.006 ${hue})`,
+    muted: `oklch(0.27 0.02 ${hue})`,
+    "muted-foreground": `oklch(0.72 0.02 ${hue})`,
+    accent: `oklch(0.31 0.05 ${hue})`,
+    "accent-foreground": `oklch(0.96 0.006 ${hue})`,
+    destructive: `oklch(0.7 0.19 22)`,
+    border: `oklch(1 0 0 / 12%)`,
+    input: `oklch(1 0 0 / 15%)`,
+    ring: primaryDark,
+    "sidebar": `oklch(0.21 0.024 ${hue})`,
+    "sidebar-primary": primaryDark,
+    radius,
   };
-  if (radius) {
-    light.radius = radius;
-    dark.radius = radius;
-  }
-  return { light, dark };
+  return { id, name, builtin: true, tokens: { light, dark } };
 }
 
 export const BUILTIN_THEMES: Theme[] = [
-  { id: "simon", name: "Simon (default)", builtin: true, tokens: accent(152, "oklch(0.62 0.16 152)", "oklch(0.72 0.17 152)") },
-  { id: "graphite", name: "Graphite", builtin: true, tokens: accent(250, "oklch(0.37 0.03 250)", "oklch(0.82 0.03 250)") },
-  { id: "amethyst", name: "Amethyst", builtin: true, tokens: accent(295, "oklch(0.55 0.2 295)", "oklch(0.7 0.18 295)", "0.9rem") },
-  { id: "sunset", name: "Sunset", builtin: true, tokens: accent(45, "oklch(0.64 0.18 45)", "oklch(0.74 0.17 55)") },
-  { id: "ocean", name: "Ocean", builtin: true, tokens: accent(210, "oklch(0.55 0.13 235)", "oklch(0.7 0.13 225)") },
-  { id: "rose", name: "Rose", builtin: true, tokens: accent(12, "oklch(0.62 0.21 14)", "oklch(0.7 0.18 14)", "1.1rem") },
+  makeTheme("simon", "Simon (default)", 152, "oklch(0.62 0.16 152)", "oklch(0.72 0.17 152)"),
+  makeTheme("slate", "Slate", 250, "oklch(0.45 0.06 255)", "oklch(0.72 0.05 255)"),
+  makeTheme("amethyst", "Amethyst", 300, "oklch(0.55 0.19 300)", "oklch(0.7 0.16 300)", "0.9rem"),
+  makeTheme("sunset", "Sunset", 40, "oklch(0.64 0.16 45)", "oklch(0.74 0.15 55)"),
+  makeTheme("ocean", "Ocean", 220, "oklch(0.55 0.13 230)", "oklch(0.7 0.13 225)", "0.75rem"),
+  makeTheme("rose", "Rose", 12, "oklch(0.6 0.2 14)", "oklch(0.7 0.17 14)", "1.1rem"),
 ];
 
 // --- apply ---

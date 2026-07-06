@@ -10,8 +10,8 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::sync::{mpsc, Mutex as AsyncMutex, Notify};
 
-use tools::{ensure_tools, ToolInfo, Tools};
-use ytdlp::{analyze as yt_analyze, download_args, AnalyzeResult};
+use tools::{ensure_tools, maybe_update_ytdlp, ToolInfo, Tools};
+use ytdlp::{analyze as yt_analyze, download_args, scan_page as yt_scan, AnalyzeResult, Found};
 
 /// One item in the download queue, as shown in the UI.
 #[derive(Clone, Serialize)]
@@ -265,8 +265,22 @@ fn format_label(s: &JobSpec) -> String {
 #[tauri::command]
 async fn setup_tools(app: AppHandle, state: State<'_, Arc<AppState>>) -> Result<ToolInfo, String> {
     let (tools, info) = ensure_tools(&app).await?;
-    *state.tools.lock().await = Some(tools);
+    *state.tools.lock().await = Some(tools.clone());
+    // Silently keep yt-dlp fresh in the background (throttled to once per day).
+    let app2 = app.clone();
+    tauri::async_runtime::spawn(async move { maybe_update_ytdlp(&app2, &tools).await });
     Ok(info)
+}
+
+#[tauri::command]
+async fn scan_page(state: State<'_, Arc<AppState>>, url: String) -> Result<Vec<Found>, String> {
+    let tools = state
+        .tools
+        .lock()
+        .await
+        .clone()
+        .ok_or("Simon is still setting up — one moment.")?;
+    yt_scan(&tools, url.trim()).await
 }
 
 #[tauri::command]
@@ -390,6 +404,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             setup_tools,
             analyze,
+            scan_page,
             enqueue,
             queue_snapshot,
             remove_job,

@@ -1,6 +1,6 @@
 [package]
 name = "simon-says"
-version = "1.0.0"
+version = "1.0.1"
 description = "A friendly desktop YouTube downloader wrapping yt-dlp and ffmpeg."
 authors = ["kbosompem"]
 edition = "2021"
@@ -20,6 +20,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 zip = { version = "2", default-features = false, features = ["deflate"] }
+regex = "1"
 
 [profile.release]
 codegen-units = 1

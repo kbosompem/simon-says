@@ -4,6 +4,27 @@ All notable changes to Simon Says are documented here. This project follows
 [Semantic Versioning](https://semver.org) and the spirit of
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.1] — 2026-07-06
+
+### Added
+
+- **Find videos on any web page.** Paste a page URL that isn't a direct video and
+  Simon scans it — via yt-dlp's generic extractor plus an HTML sweep for known
+  hosts (YouTube, Vimeo, Dailymotion, Twitch, TikTok, Streamable, Facebook) and
+  direct media files — then lists what it found so you can pick one to download.
+- **Silent yt-dlp self-update.** On launch (at most once a day) Simon quietly
+  updates yt-dlp to the latest stable so downloads keep working as sites change;
+  a small toast appears only when it actually updates.
+
+### Fixed
+
+- **Whole-playlist downloads.** Simon now downloads using the URL you pasted
+  instead of yt-dlp's extracted `webpage_url`, which dropped the `&list=` param
+  and caused only the single video to download.
+- **Theme switching.** Bundled themes are now complete token sets, so switching
+  visibly restyles the whole app (background, cards, borders, accent) instead of
+  only nudging the accent colour.
+
 ## [1.0.0] — 2026-07-06
 
 The first release. 🟢🔴🟡🔵

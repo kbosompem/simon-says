@@ -56,6 +56,11 @@ export interface ToolInfo {
   ytdlp: string;
   ffmpeg: string;
 }
+export interface Found {
+  url: string;
+  title: string;
+  source: string;
+}
 export interface SetupProgress {
   title: string;
   sub: string;
@@ -66,6 +71,7 @@ export interface SetupProgress {
 export const api = {
   setupTools: () => invoke<ToolInfo>("setup_tools"),
   analyze: (url: string) => invoke<AnalyzeResult>("analyze", { url }),
+  scanPage: (url: string) => invoke<Found[]>("scan_page", { url }),
   enqueue: (spec: JobSpec) => invoke<void>("enqueue", { spec }),
   queueSnapshot: () => invoke<Job[]>("queue_snapshot"),
   removeJob: (id: number) => invoke<void>("remove_job", { id }),
@@ -80,6 +86,8 @@ export const onQueue = (cb: (jobs: Job[]) => void): Promise<UnlistenFn> =>
   listen<Job[]>("queue-update", (e) => cb(e.payload));
 export const onSetup = (cb: (p: SetupProgress) => void): Promise<UnlistenFn> =>
   listen<SetupProgress>("setup-progress", (e) => cb(e.payload));
+export const onYtdlpUpdated = (cb: (version: string) => void): Promise<UnlistenFn> =>
+  listen<string>("ytdlp-updated", (e) => cb(e.payload));
 
 // ---- folder picker ----
 export async function pickFolder(defaultPath?: string): Promise<string | null> {

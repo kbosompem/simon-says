@@ -1,11 +1,19 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
+use regex::Regex;
 use serde::Serialize;
 use serde_json::Value;
 
 use crate::cmd;
 use crate::tools::Tools;
 use crate::JobSpec;
+
+#[derive(Serialize, Clone)]
+pub struct Found {
+    pub url: String,
+    pub title: String,
+    pub source: String,
+}
 
 #[derive(Serialize, Clone)]
 pub struct StreamOption {
@@ -93,6 +101,118 @@ pub async fn analyze(tools: &Tools, url: &str) -> Result<AnalyzeResult, String> 
         // strips the `&list=` param, which breaks whole-playlist downloads.
         webpage_url: url.to_string(),
     })
+}
+
+/// Scan a web page for videos yt-dlp can pull: first via yt-dlp's own generic
+/// extractor (embeds, HLS, og:video…), then by scraping the HTML for links to
+/// known video hosts and direct media files.
+pub async fn scan_page(tools: &Tools, page_url: &str) -> Result<Vec<Found>, String> {
+    let mut out: Vec<Found> = Vec::new();
+    let mut seen: HashSet<String> = HashSet::new();
+
+    // 1) yt-dlp generic extraction
+    if let Ok(o) = cmd(&tools.ytdlp)
+        .args(["--flat-playlist", "-J", "--no-warnings", "--", page_url])
+        .output()
+        .await
+    {
+        if o.status.success() {
+            if let Ok(v) = serde_json::from_slice::<Value>(&o.stdout) {
+                if let Some(entries) = v.get("entries").and_then(|e| e.as_array()) {
+                    for e in entries {
+                        let url = e
+                            .get("url")
+                            .and_then(|x| x.as_str())
+                            .or_else(|| e.get("webpage_url").and_then(|x| x.as_str()));
+                        push_found(&mut out, &mut seen, url, e.get("title").and_then(|x| x.as_str()), "embedded");
+                    }
+                } else if v.get("formats").is_some() {
+                    let url = v
+                        .get("webpage_url")
+                        .and_then(|x| x.as_str())
+                        .or(Some(page_url));
+                    push_found(&mut out, &mut seen, url, v.get("title").and_then(|x| x.as_str()), "embedded");
+                }
+            }
+        }
+    }
+
+    // 2) HTML scrape for known hosts + direct media
+    if let Ok(resp) = reqwest::get(page_url).await {
+        if let Ok(html) = resp.text().await {
+            scan_html(&html, &mut out, &mut seen);
+        }
+    }
+
+    out.truncate(40);
+    Ok(out)
+}
+
+fn push_found(out: &mut Vec<Found>, seen: &mut HashSet<String>, url: Option<&str>, title: Option<&str>, source: &str) {
+    let Some(u) = url else { return };
+    let u = u.trim();
+    if !u.starts_with("http") {
+        return;
+    }
+    let key = u.trim_end_matches('/').to_lowercase();
+    if !seen.insert(key) {
+        return;
+    }
+    let title = title.map(|t| t.trim()).filter(|t| !t.is_empty()).unwrap_or("Video");
+    out.push(Found {
+        url: u.to_string(),
+        title: title.chars().take(120).collect(),
+        source: source.to_string(),
+    });
+}
+
+fn scan_html(html: &str, out: &mut Vec<Found>, seen: &mut HashSet<String>) {
+    let url_re = Regex::new(r#"(?i)https?://[^\s"'<>\\)]+"#).unwrap();
+    const HOSTS: [&str; 8] = [
+        "youtube.com/watch",
+        "youtu.be/",
+        "vimeo.com/",
+        "dailymotion.com/video",
+        "twitch.tv/videos",
+        "tiktok.com/",
+        "streamable.com/",
+        "facebook.com/watch",
+    ];
+    for m in url_re.find_iter(html) {
+        let u = m.as_str().trim_end_matches(&['"', '\'', ')', ',', '.'][..]);
+        let low = u.to_lowercase();
+        if let Some(host) = HOSTS.iter().find(|h| low.contains(**h)) {
+            let label = host_label(host);
+            let title = format!("Video on {label}");
+            push_found(out, seen, Some(u), Some(title.as_str()), label.as_str());
+        } else if low.ends_with(".mp4") || low.ends_with(".m3u8") || low.ends_with(".webm") {
+            push_found(out, seen, Some(u), Some("Direct media file"), "direct");
+        }
+        if out.len() >= 40 {
+            break;
+        }
+    }
+}
+
+fn host_label(h: &str) -> String {
+    if h.contains("youtu") {
+        "YouTube"
+    } else if h.contains("vimeo") {
+        "Vimeo"
+    } else if h.contains("dailymotion") {
+        "Dailymotion"
+    } else if h.contains("twitch") {
+        "Twitch"
+    } else if h.contains("tiktok") {
+        "TikTok"
+    } else if h.contains("streamable") {
+        "Streamable"
+    } else if h.contains("facebook") {
+        "Facebook"
+    } else {
+        "the web"
+    }
+    .to_string()
 }
 
 fn parse_video(formats: &[Value]) -> Vec<StreamOption> {

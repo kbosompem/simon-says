@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -205,6 +206,40 @@ async fn make_executable(_path: &Path) -> Result<(), String> {
             .map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// Silently self-update yt-dlp to the latest stable, at most once per day.
+/// Emits `ytdlp-updated` with the new version only when it actually changes.
+pub async fn maybe_update_ytdlp(app: &AppHandle, tools: &Tools) {
+    let Some(dir) = tools.ytdlp.parent() else {
+        return;
+    };
+    let marker = dir.join(".ytdlp_update_check");
+    if let Ok(meta) = std::fs::metadata(&marker) {
+        if let Ok(modified) = meta.modified() {
+            if modified
+                .elapsed()
+                .map(|e| e < Duration::from_secs(86_400))
+                .unwrap_or(false)
+            {
+                return; // checked within the last 24h
+            }
+        }
+    }
+    let _ = std::fs::write(&marker, b"");
+
+    let before = version_of(&tools.ytdlp, &["--version"], false)
+        .await
+        .unwrap_or_default();
+    if cmd(&tools.ytdlp).args(["-U"]).output().await.is_err() {
+        return;
+    }
+    let after = version_of(&tools.ytdlp, &["--version"], false)
+        .await
+        .unwrap_or_default();
+    if !after.is_empty() && after != before {
+        let _ = app.emit("ytdlp-updated", after);
+    }
 }
 
 /// Run `bin <args>` and pull a short version string out of the first line.

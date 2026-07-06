@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Search, FolderOpen, Plus, Moon, Sun, ListVideo, Loader2 } from "lucide-react";
+import { Search, FolderOpen, Plus, Moon, Sun, ListVideo, Loader2, Film } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { StreamPicker, type Selection } from "@/components/StreamPicker";
 import { QueuePanel } from "@/components/QueuePanel";
 import { ThemeMenu } from "@/components/ThemeMenu";
 
-import { api, onQueue, onSetup, pickFolder, type AnalyzeResult, type Job, type JobSpec, type SetupProgress } from "@/lib/tauri";
+import { api, onQueue, onSetup, onYtdlpUpdated, pickFolder, type AnalyzeResult, type Found, type Job, type JobSpec, type SetupProgress } from "@/lib/tauri";
 import { allThemes, applyTheme, getActiveThemeId, getMode, setActiveThemeId, setMode, type Mode } from "@/lib/themes";
 
 export default function App() {
@@ -54,6 +54,7 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysis, setAnalysis] = useState<AnalyzeResult | null>(null);
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
+  const [pageResults, setPageResults] = useState<Found[] | null>(null);
   const [selection, setSelection] = useState<Selection>({ videoHeight: null, audioOnly: false, subLangs: [] });
   const handleSel = useCallback((s: Selection) => setSelection(s), []);
 
@@ -76,6 +77,12 @@ export default function App() {
       }
       unlisten.current.push(await onSetup((p) => setSetup(p)));
       unlisten.current.push(await onQueue((j) => setJobs(j)));
+      unlisten.current.push(
+        await onYtdlpUpdated((v) => {
+          setTools((t) => (t ? { ...t, ytdlp: v } : t));
+          toast.success("yt-dlp updated to " + v);
+        })
+      );
       try {
         setJobs(await api.queueSnapshot());
       } catch {
@@ -98,8 +105,31 @@ export default function App() {
     if (!u) return;
     setAnalyzing(true);
     setAnalyzeError(null);
+    setPageResults(null);
     try {
       setAnalysis(await api.analyze(u));
+    } catch (err) {
+      // Not a direct video/playlist — try scanning the page for videos.
+      setAnalysis(null);
+      try {
+        const found = await api.scanPage(u);
+        if (found.length > 0) setPageResults(found);
+        else setAnalyzeError(String(err));
+      } catch {
+        setAnalyzeError(String(err));
+      }
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function pickFound(f: Found) {
+    setUrl(f.url);
+    setPageResults(null);
+    setAnalyzing(true);
+    setAnalyzeError(null);
+    try {
+      setAnalysis(await api.analyze(f.url));
     } catch (err) {
       setAnalysis(null);
       setAnalyzeError(String(err));
@@ -216,12 +246,12 @@ export default function App() {
       <main className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden md:grid-cols-[1.55fr_1fr]">
         {/* left: media + streams */}
         <div className="overflow-y-auto border-b p-4 md:border-b-0 md:border-r">
-          {!analysis && !analyzeError && (
+          {!analysis && !analyzeError && !pageResults && (
             <div className="flex flex-col items-center gap-2 px-5 py-9 text-center">
               <SimonRing size={80} className="mb-2" />
               <p className="text-balance text-base font-bold">Paste a link and Simon will show you every stream.</p>
               <p className="max-w-sm text-balance text-sm text-muted-foreground">
-                Video, audio and subtitle tracks — you pick the resolution and format, Simon does the rest.
+                A video, a playlist, or any web page with videos on it — you pick the resolution and format, Simon does the rest.
               </p>
             </div>
           )}
@@ -229,6 +259,31 @@ export default function App() {
           {analyzeError && (
             <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               Simon couldn't read that link: {analyzeError}
+            </div>
+          )}
+
+          {pageResults && (
+            <div className="flex flex-col gap-2">
+              <div>
+                <p className="text-sm font-bold">
+                  Found {pageResults.length} video{pageResults.length > 1 ? "s" : ""} on this page
+                </p>
+                <p className="text-xs text-muted-foreground">Not a direct link — pick one to see its download options.</p>
+              </div>
+              {pageResults.map((f, i) => (
+                <button
+                  key={i}
+                  onClick={() => pickFound(f)}
+                  className="flex items-center gap-3 rounded-xl border bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
+                >
+                  <Film className="size-4 shrink-0 text-simon-blue" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{f.title}</span>
+                    <span className="block truncate font-mono text-xs text-muted-foreground">{f.url}</span>
+                  </span>
+                  <Badge variant="secondary" className="shrink-0">{f.source}</Badge>
+                </button>
+              ))}
             </div>
           )}
 

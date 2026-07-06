@@ -1,6 +1,6 @@
 [package]
 name = "simon-says"
-version = "1.0.1"
+version = "1.0.2"
 description = "A friendly desktop YouTube downloader wrapping yt-dlp and ffmpeg."
 authors = ["kbosompem"]
 edition = "2021"

@@ -1,7 +1,7 @@
 {
   "name": "simon-says",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "type": "module",
   "description": "Simon Says — a friendly desktop YouTube downloader wrapping yt-dlp & ffmpeg.",
   "scripts": {

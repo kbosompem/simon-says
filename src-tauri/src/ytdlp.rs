@@ -137,10 +137,14 @@ pub async fn scan_page(tools: &Tools, page_url: &str) -> Result<Vec<Found>, Stri
         }
     }
 
-    // 2) HTML scrape for known hosts + direct media
-    if let Ok(resp) = reqwest::get(page_url).await {
-        if let Ok(html) = resp.text().await {
-            scan_html(&html, &mut out, &mut seen);
+    // 2) Only scrape the HTML when yt-dlp couldn't pull anything natively.
+    //    For sites yt-dlp supports (YouTube, Vimeo, …) we pass its result
+    //    straight through and never second-guess it with a raw HTML sweep.
+    if out.is_empty() {
+        if let Ok(resp) = reqwest::get(page_url).await {
+            if let Ok(html) = resp.text().await {
+                scan_html(&html, &mut out, &mut seen);
+            }
         }
     }
 
@@ -348,6 +352,13 @@ pub fn download_args(spec: &JobSpec, tools: &Tools) -> Vec<String> {
         "--no-color".into(),
         "--progress".into(),
         "--no-warnings".into(),
+        // Ride out transient YouTube 403s / throttling instead of failing the job.
+        "--retries".into(),
+        "10".into(),
+        "--fragment-retries".into(),
+        "10".into(),
+        "--extractor-retries".into(),
+        "3".into(),
         "--progress-template".into(),
         "download:SIMON|%(progress._percent_str)s|%(progress._speed_str)s|%(progress._eta_str)s".into(),
     ];

@@ -9,7 +9,6 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Toaster } from "@/components/ui/sonner";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 import { SimonRing } from "@/components/SimonRing";
 import { StreamPicker, type Selection } from "@/components/StreamPicker";
@@ -344,16 +343,15 @@ export default function App() {
               </div>
               <div className="flex items-center justify-between gap-3 py-3">
                 <div className="text-sm font-medium">Merge into</div>
-                <Select value={container} onValueChange={setContainer}>
-                  <SelectTrigger className="w-[190px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mp4">MP4 (H.264 + AAC)</SelectItem>
-                    <SelectItem value="mkv">MKV (keep originals)</SelectItem>
-                    <SelectItem value="mp3">MP3 (audio only)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={container}
+                  onChange={(e) => setContainer(e.target.value)}
+                  className="h-9 w-[190px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+                >
+                  <option value="mp4">MP4 (H.264 + AAC)</option>
+                  <option value="mkv">MKV (keep originals)</option>
+                  <option value="mp3">MP3 (audio only)</option>
+                </select>
               </div>
               <div className="flex items-center justify-between gap-3 py-3">
                 <div>

@@ -4,6 +4,25 @@ All notable changes to Simon Says are documented here. This project follows
 [Semantic Versioning](https://semver.org) and the spirit of
 [Keep a Changelog](https://keepachangelog.com).
 
+## [1.0.2] — 2026-07-06
+
+### Fixed
+
+- **Theme menu wouldn't open in the packaged macOS app.** Rebuilt the theme
+  picker and the tweakcn install dialog without Radix's portal/pointer-capture
+  components (which don't reliably open in the macOS WKWebView) — they're now
+  plain DOM that works in any webview. The format dropdown is now a native
+  `<select>` for the same reason.
+- **Download resilience.** Added retries (`--retries`, `--fragment-retries`,
+  `--extractor-retries`) so transient YouTube 403 / throttling responses are
+  ridden out instead of failing the job.
+
+### Changed
+
+- **Web-page finder now defers to yt-dlp.** The raw HTML sweep only runs when
+  yt-dlp's own extractor can't pull anything from the page — for sites yt-dlp
+  supports natively, its result passes straight through untouched.
+
 ## [1.0.1] — 2026-07-06
 
 ### Added

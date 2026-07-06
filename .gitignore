@@ -1,0 +1,20 @@
+# dependencies
+node_modules/
+
+# frontend build
+dist/
+*.local
+
+# rust / tauri
+src-tauri/target/
+src-tauri/gen/
+
+# logs & os cruft
+*.log
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea/

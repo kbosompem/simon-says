@@ -1,0 +1,71 @@
+name: Release
+
+# Cut a release by pushing a version tag (e.g. `git tag v1.0.0 && git push --tags`),
+# or trigger manually from the Actions tab with a tag name.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. v1.0.0)"
+        required: true
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # Apple Silicon + Intel (universal)
+            args: "--target universal-apple-darwin"
+          - platform: windows-latest
+            args: ""
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build & release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event.inputs.tag || github.ref_name }}
+          releaseName: "Simon Says ${{ github.event.inputs.tag || github.ref_name }}"
+          releaseBody: |
+            🟢🔴🟡🔵 **Simon Says** — YouTube, on your terms.
+
+            Download the installer for your platform below:
+            - **Windows** — `.exe` (or `.msi`)
+            - **macOS** — `.dmg` (universal; Apple Silicon + Intel)
+
+            First launch downloads yt-dlp & ffmpeg automatically. See the README for
+            how to open the unsigned build the first time.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: ${{ matrix.args }}
